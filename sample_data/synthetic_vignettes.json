@@ -1,0 +1,72 @@
+[
+  {
+    "case_id": "vignette-001",
+    "description": "Classic right-sided pneumothorax",
+    "patient_context": {
+      "age": 28, "sex": "M",
+      "chief_complaint": "sudden onset right-sided pleuritic chest pain and dyspnea",
+      "hpi": "Tall thin male with sudden sharp right chest pain onset 2 hours ago at rest. No trauma. No prior similar episodes.",
+      "pmh": [],
+      "meds": [],
+      "vitals": {"BP": "122/78", "HR": 104, "RR": 22, "SpO2": 94},
+      "labs": {}
+    },
+    "notes": "Classic spontaneous pneumothorax presentation. Expect CXR to show right apical pleural line."
+  },
+  {
+    "case_id": "vignette-002",
+    "description": "Pulmonary embolism with high D-dimer",
+    "patient_context": {
+      "age": 64, "sex": "M",
+      "chief_complaint": "acute dyspnea and hypoxemia",
+      "hpi": "64-year-old male on long-haul flight 3 days ago. Now with acute onset dyspnea, mild pleuritic pain, and hypoxemia.",
+      "pmh": ["HTN", "prostate cancer"],
+      "meds": ["metformin", "lisinopril"],
+      "vitals": {"BP": "98/60", "HR": 120, "RR": 28, "SpO2": 88},
+      "labs": {"D_dimer": 1200, "troponin": 0.03, "BNP": 450}
+    },
+    "notes": "High probability PE. CXR may show Hampton's hump or Westermark sign."
+  },
+  {
+    "case_id": "vignette-003",
+    "description": "Community-acquired pneumonia",
+    "patient_context": {
+      "age": 45, "sex": "F",
+      "chief_complaint": "productive cough, fever, and right lower lobe opacity on CXR",
+      "hpi": "3-day history of productive cough with yellow sputum, fever to 39.2°C, right-sided pleuritic pain.",
+      "pmh": ["DM2"],
+      "meds": ["metformin"],
+      "vitals": {"BP": "118/74", "HR": 98, "RR": 20, "SpO2": 95},
+      "labs": {"WBC": 14200, "CRP": 120, "procalcitonin": 0.8}
+    },
+    "notes": "Lobar pneumonia pattern expected. Differential includes aspiration vs atypical organisms."
+  },
+  {
+    "case_id": "vignette-004",
+    "description": "Congestive heart failure exacerbation",
+    "patient_context": {
+      "age": 72, "sex": "F",
+      "chief_complaint": "worsening dyspnea on exertion and bilateral leg swelling",
+      "hpi": "Known HFrEF (EF 35%), 5-day history of worsening dyspnea, 3-pillow orthopnea, bilateral leg edema.",
+      "pmh": ["HF", "HTN", "AF"],
+      "meds": ["furosemide 40mg", "carvedilol", "lisinopril", "spironolactone"],
+      "vitals": {"BP": "158/92", "HR": 88, "RR": 24, "SpO2": 91},
+      "labs": {"BNP": 1800, "creatinine": 1.4, "Na": 134}
+    },
+    "notes": "Bilateral Kerley B lines, cardiomegaly, pleural effusions expected on CXR."
+  },
+  {
+    "case_id": "vignette-005",
+    "description": "Lung malignancy — new mass",
+    "patient_context": {
+      "age": 67, "sex": "M",
+      "chief_complaint": "incidental right upper lobe mass on routine CXR",
+      "hpi": "40 pack-year smoking history. Routine pre-op CXR showed 3.2cm right upper lobe spiculated mass.",
+      "pmh": ["COPD", "HTN"],
+      "meds": ["tiotropium", "amlodipine"],
+      "vitals": {"BP": "138/86", "HR": 76, "RR": 16, "SpO2": 96},
+      "labs": {"CEA": 8.2}
+    },
+    "notes": "High suspicion for primary lung carcinoma. CT chest + PET-CT and biopsy workup needed."
+  }
+]

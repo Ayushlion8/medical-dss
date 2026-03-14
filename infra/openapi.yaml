@@ -1,0 +1,210 @@
+openapi: "3.1.0"
+info:
+  title: Medical DSS – Agentic Diagnostic Decision Support
+  version: "1.0.0"
+  description: |
+    Research / education only. Not a medical device. Not for clinical use.
+
+servers:
+  - url: http://localhost:8000/api
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /upload-image:
+    post:
+      summary: Upload a CXR image (DICOM/PNG/JPEG)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image_id: { type: string }
+                  filename: { type: string }
+                  path:     { type: string }
+        "400": { description: Unsupported file type }
+        "413": { description: File too large }
+
+  /analyze-case:
+    post:
+      summary: Run full agentic diagnostic analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeCaseRequest'
+      responses:
+        "200":
+          description: Diagnostic report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeCaseResponse'
+        "404": { description: Image not found }
+        "500": { description: Pipeline error }
+
+  /reports/{report_id}:
+    get:
+      summary: Download generated PDF report
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404": { description: Report not found }
+
+components:
+  schemas:
+    Vitals:
+      type: object
+      properties:
+        BP:   { type: string,  example: "98/60" }
+        HR:   { type: integer, example: 120 }
+        RR:   { type: integer, example: 28 }
+        SpO2: { type: number,  example: 88 }
+
+    PatientContext:
+      type: object
+      required: [age, sex, chief_complaint]
+      properties:
+        age:              { type: integer }
+        sex:              { type: string, enum: [M, F, Other] }
+        chief_complaint:  { type: string }
+        hpi:              { type: string }
+        pmh:              { type: array, items: { type: string } }
+        allergies:        { type: array, items: { type: string } }
+        vitals:           { $ref: '#/components/schemas/Vitals' }
+        labs:             { type: object, additionalProperties: true }
+        meds:             { type: array, items: { type: string } }
+
+    ImageRef:
+      type: object
+      required: [id, uri]
+      properties:
+        id:       { type: string }
+        modality: { type: string, example: CR }
+        format:   { type: string, enum: [DICOM, PNG, JPEG] }
+        uri:      { type: string }
+
+    AnalysisPreferences:
+      type: object
+      properties:
+        recency_years: { type: integer, default: 5 }
+        max_citations: { type: integer, default: 8 }
+        show_overlays: { type: boolean, default: true }
+
+    AnalyzeCaseRequest:
+      type: object
+      required: [case_id, patient_context]
+      properties:
+        case_id:          { type: string }
+        patient_context:  { $ref: '#/components/schemas/PatientContext' }
+        images:           { type: array, items: { $ref: '#/components/schemas/ImageRef' } }
+        preferences:      { $ref: '#/components/schemas/AnalysisPreferences' }
+
+    ImagingFinding:
+      type: object
+      properties:
+        prob:        { type: number }
+        laterality:  { type: string }
+        size:        { type: string }
+        overlay_id:  { type: string }
+        description: { type: string }
+
+    CitationSnippet:
+      type: object
+      properties:
+        id:         { type: string }
+        pmid:       { type: string }
+        doi:        { type: string }
+        title:      { type: string }
+        authors:    { type: string }
+        year:       { type: integer }
+        source:     { type: string }
+        study_type: { type: string }
+        quote:      { type: string }
+        url:        { type: string }
+
+    Differential:
+      type: object
+      properties:
+        dx:               { type: string }
+        icd10:            { type: string }
+        rationale:        { type: string }
+        probability_rank: { type: integer }
+        support:
+          type: array
+          items:
+            type: object
+            properties:
+              snippet_id: { type: string }
+
+    Overlay:
+      type: object
+      properties:
+        overlay_id:  { type: string }
+        type:        { type: string, enum: [bbox, mask] }
+        coords:      { type: array, items: { type: number } }
+        overlay_url: { type: string }
+
+    GroundednessNote:
+      type: object
+      properties:
+        verified: { type: boolean }
+        gaps:     { type: array, items: { type: string } }
+        note:     { type: string }
+
+    AgentTrace:
+      type: object
+      properties:
+        agent:             { type: string }
+        duration_ms:       { type: number }
+        retrieved_doc_ids: { type: array, items: { type: string } }
+
+    AnalyzeCaseResponse:
+      type: object
+      properties:
+        case_id:          { type: string }
+        imaging_findings: { type: object, additionalProperties: { $ref: '#/components/schemas/ImagingFinding' } }
+        differentials:    { type: array, items: { $ref: '#/components/schemas/Differential' } }
+        red_flags:        { type: array, items: { type: string } }
+        next_steps:       { type: array, items: { type: string } }
+        citations:        { type: array, items: { $ref: '#/components/schemas/CitationSnippet' } }
+        overlays:         { type: array, items: { $ref: '#/components/schemas/Overlay' } }
+        groundedness:     { $ref: '#/components/schemas/GroundednessNote' }
+        traces:           { type: array, items: { $ref: '#/components/schemas/AgentTrace' } }
+        report_url:       { type: string }
+        disclaimer:       { type: string }

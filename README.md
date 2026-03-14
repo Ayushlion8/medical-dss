@@ -10,29 +10,29 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        BROWSER (React)                       │
-│  Upload CXR → Case Form → Analysis Panel (Overlays/Cites)   │
+│  Upload CXR → Case Form → Analysis Panel (Overlays/Cites)    │
 └────────────────────────┬─────────────────────────────────────┘
                          │ HTTPS (nginx reverse proxy)
 ┌────────────────────────▼─────────────────────────────────────┐
 │                    FastAPI  /api/analyze-case                │
 │                                                              │
-│   ┌──────────────────────────────────────────────────────┐   │
-│   │              OrchestratorAgent                       │   │
-│   │  ┌─────────┐ ┌───────────┐ ┌──────────┐ ┌────────┐  │   │
-│   │  │ Vision  │ │ Retrieval │ │Diagnosis │ │Citation│  │   │
-│   │  │ Agent   │ │  Agent    │ │  Agent   │ │Verify. │  │   │
-│   │  │TorchXRV │ │BM25+Chroma│ │  Gemma   │ │        │  │   │
-│   │  └────┬────┘ └─────┬─────┘ └────┬─────┘ └────────┘  │   │
-│   │       │            │            │    ┌──────────────┐ │   │
-│   │       └────────────┴────────────┘    │Safety Agent  │ │   │
-│   │                                      │+ PDF report  │ │   │
-│   └──────────────────────────────────────┴──────────────┘   │
+│   ┌────────────────────────────────────────────────────── ┐  │
+│   │              OrchestratorAgent                        │  │
+│   │  ┌─────────┐ ┌───────────┐ ┌──────────┐ ┌────────┐    │  │
+│   │  │ Vision  │ │ Retrieval │ │Diagnosis │ │Citation│    │  │
+│   │  │ Agent   │ │  Agent    │ │  Agent   │ │Verify. │    │  │
+│   │  │TorchXRV │ │BM25+Chroma│ │  Gemma   │ │        │    │  │
+│   │  └────┬────┘ └─────┬─────┘ └────┬─────┘ └────────┘    │  │
+│   │       │            │            │    ┌──────────────┐ │  │
+│   │       └────────────┴────────────┘    │Safety Agent  │ │  │
+│   │                                      │+ PDF report  │ │  │
+│   └──────────────────────────────────────┴──────────────┘─│  │
 └───────────┬─────────────────────────┬────────────────────────┘
             │                         │
   ┌─────────▼───────┐      ┌──────────▼────────┐
-  │  Ollama (Gemma) │      │  ChromaDB (Chroma) │
-  │  gemma3:12b     │      │  RAG vector index  │
-  │  llava:13b      │      │  (PubMed abstracts)│
+  │  Ollama (Gemma) │      │  ChromaDB (Chroma)│
+  │  gemma3:12b     │      │  RAG vector index │
+  │  llava:13b      │      │  PubMed abstracts │
   └─────────────────┘      └───────────────────┘
 ```
 

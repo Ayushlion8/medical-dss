@@ -3,7 +3,8 @@
 > ⚠️ **Research & Education Only — Not a Medical Device — Not for Clinical Use**
 > This system has not been validated for diagnostic accuracy. Never use output to make real clinical decisions. Always consult a qualified clinician.
 
-**🔴 Live Demo:** https://medical-dss.streamlit.app &nbsp;|&nbsp; **📖 API Docs:** /api/docs &nbsp;|&nbsp; **🐙 Repo:** https://github.com/Ayushlion8/medical-dss
+**🔴 Live Demo:** https://medical-dss.streamlit.app &nbsp;|&nbsp; **📖 API Docs:** /api/docs &nbsp;|&nbsp; 
+**🐙 Repo:** https://github.com/Ayushlion8/medical-dss
 
 ---
 

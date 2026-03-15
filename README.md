@@ -1,285 +1,376 @@
 # 🏥 Medical DSS — Agentic Diagnostic Decision Support
 
-> **⚠️ RESEARCH & EDUCATION ONLY. NOT A MEDICAL DEVICE. NOT FOR CLINICAL USE.**
+> ⚠️ **Research & Education Only — Not a Medical Device — Not for Clinical Use**
 > This system has not been validated for diagnostic accuracy. Never use output to make real clinical decisions. Always consult a qualified clinician.
 
+**🔴 Live Demo:** https://medical-dss.streamlit.app &nbsp;|&nbsp; **📖 API Docs:** /api/docs &nbsp;|&nbsp; **🐙 Repo:** https://github.com/Ayushlion8/medical-dss
+
 ---
 
-## Architecture Overview
+## 🎯 What It Does
+
+Upload a chest X-ray + fill a clinical form → a team of 6 AI agents collaborates to produce a **grounded diagnostic report** in ~10 seconds:
+
+- **4 ranked differentials** with ICD-10 codes and PubMed-cited rationale
+- **Imaging findings** from TorchXRayVision DenseNet121 with bounding box overlays
+- **Red flags** for urgent/emergent considerations
+- **Next steps** — specific tests, imaging, and referrals
+- **8 verified citations** with PMID, DOI, study type, and exact quotes
+- **PDF export** — full report with overlays + citations + disclaimers
+
+---
+
+## 📸 System in Action
+
+### Step 1 — Upload Chest X-Ray
+> DICOM (.dcm), PNG, or JPEG · De-identification enforced · 50 MB max
+
+![Upload Step](docs/upload.png)
+
+### Step 2 — Clinical Case Form
+> Demographics · Vitals · Labs (JSON) · Medications · Evidence preferences
+
+![Case Form](docs/form.png)
+![Case Form](docs/form1.png)
+![Case Form](docs/form3.png)
+![Case Form](docs/form2.png)
+
+### Step 3a — Red Flags (Urgent Findings)
+> Prominently displayed at the top of every report
+
+![Red Flags](docs/redflags.png)
+
+### Step 3b — Imaging Findings with Bounding Box Overlays
+> TorchXRayVision DenseNet121 detects 14 pathologies with probability scores and visual overlays
+
+![Imaging Findings](docs/imaging.png)
+
+### Step 3c — Differential Diagnoses + Next Steps
+> Ranked differentials with ICD-10 codes · Expandable citation panels · 8 verified PubMed citations
+
+![Differentials](docs/differentials.png)
+
+---
+
+## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                        BROWSER (React)                       │
-│  Upload CXR → Case Form → Analysis Panel (Overlays/Cites)    │
-└────────────────────────┬─────────────────────────────────────┘
-                         │ HTTPS (nginx reverse proxy)
-┌────────────────────────▼─────────────────────────────────────┐
-│                    FastAPI  /api/analyze-case                │
-│                                                              │
-│   ┌────────────────────────────────────────────────────── ┐  │
-│   │              OrchestratorAgent                        │  │
-│   │  ┌─────────┐ ┌───────────┐ ┌──────────┐ ┌────────┐    │  │
-│   │  │ Vision  │ │ Retrieval │ │Diagnosis │ │Citation│    │  │
-│   │  │ Agent   │ │  Agent    │ │  Agent   │ │Verify. │    │  │
-│   │  │TorchXRV │ │BM25+Chroma│ │  Gemma   │ │        │    │  │
-│   │  └────┬────┘ └─────┬─────┘ └────┬─────┘ └────────┘    │  │
-│   │       │            │            │    ┌──────────────┐ │  │
-│   │       └────────────┴────────────┘    │Safety Agent  │ │  │
-│   │                                      │+ PDF report  │ │  │
-│   └──────────────────────────────────────┴──────────────┘─│  │
-└───────────┬─────────────────────────┬────────────────────────┘
-            │                         │
-  ┌─────────▼───────┐      ┌──────────▼────────┐
-  │  Ollama (Gemma) │      │  ChromaDB (Chroma)│
-  │  gemma3:12b     │      │  RAG vector index │
-  │  llava:13b      │      │  PubMed abstracts │
-  └─────────────────┘      └───────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│              React UI / Streamlit (3-step wizard)                │
+│      Upload CXR → Case Form → Analysis (Overlays + Cites)        │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │ HTTPS (nginx reverse proxy)
+┌──────────────────────────▼───────────────────────────────────────┐
+│                   FastAPI  /api/analyze-case                     │
+│                                                                  │
+│   ┌──────────────────────────────────────────────────────────┐   │
+│   │                   OrchestratorAgent                      │   │
+│   │  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌────────┐   │   │
+│   │  │  Vision  │  │ Retrieval │  │Diagnosis │  │Citation│   │   │
+│   │  │  Agent   │  │   Agent   │  │  Agent   │  │Verify. │   │   │
+│   │  │ TorchXRV │  │BM25+Chroma│  │  Gemini  │  │        │   │   │
+│   │  └──────────┘  └───────────┘  └──────────┘  └────────┘   │   │
+│   │       │               │             │     ┌────────────┐ │   │
+│   │       └───────────────┴─────────────┘     │Safety Agent│ │   │
+│   │                                           │+ PDF Report│ │   │
+│   └───────────────────────────────────────────┴────────────┘ │   │
+└──────────────┬──────────────────────────┬────────────────────────┘
+               │                          │
+     ┌─────────▼──────────┐    ┌──────────▼──────────┐
+     │  Gemini 2.0/2.5    │    │  ChromaDB + PubMed  │
+     │  Flash (LLM)       │    │  355 abstracts RAG  │
+     └────────────────────┘    └─────────────────────┘
 ```
 
-### Agent Roles
+---
 
-| Agent | Responsibility | Model/Tool |
+## 🤖 Agent Team
+
+| Agent | Responsibility | Model / Tool |
 |---|---|---|
-| **OrchestratorAgent** | Workflow planning, routing, retries, trace saving | Python logic |
-| **VisionAgent** | CXR image analysis, pathology probabilities, bbox overlays | TorchXRayVision DenseNet121 + OpenCV |
+| **OrchestratorAgent** | Plans workflow, routes tasks, retries, saves JSONL traces | Python async |
+| **VisionAgent** | CXR pathology detection (14 labels) + bounding box overlays | TorchXRayVision DenseNet121 + OpenCV |
 | **RetrievalAgent** | Hybrid BM25 + dense vector search + live PubMed E-utilities | ChromaDB + sentence-transformers + Biopython |
-| **DiagnosisAgent** | Clinical reasoning, differentials, ICD-10, red flags, citations | Gemma 3 12B via Ollama |
-| **CitationVerifierAgent** | Validates every differential has exact-quote evidence | Python logic |
-| **SafetyAgent** | PHI detection, dosing guardrail, disclaimer injection, PDF export | ReportLab |
+| **DiagnosisAgent** | Clinical reasoning, ICD-10, red flags, next steps, inline citations | Gemini 2.0/2.5 Flash |
+| **CitationVerifierAgent** | Validates every differential has exact-quote evidence, flags gaps | Python logic |
+| **SafetyAgent** | PHI regex scan, dosing guardrail, disclaimer injection, PDF export | ReportLab |
 
 ---
 
-## Quick Start
+## 📊 Sample Output
 
-### Prerequisites
-- Docker + Docker Compose v2
-- 16 GB RAM minimum (32 GB recommended for Gemma 12B)
-- NVIDIA GPU optional but strongly recommended
+```
+Case: 28yo Male — Sudden right-sided chest pain and dyspnea
+Vitals: BP=122/78  HR=104  RR=22  SpO2=94%
+Labs: D-dimer=1200, troponin=0.03
 
-### 1. Clone & configure
+🚨 RED FLAGS
+  • Sudden onset chest pain + tachycardia + tachypnea → acute cardiopulmonary distress
+  • SpO2 94% → hypoxemia
+  • Elevated D-dimer → suspicion for pulmonary embolism
+
+🫁 IMAGING FINDINGS (TorchXRayVision DenseNet121)
+  Infiltration   52%  [bbox overlay]
+  Atelectasis    51%  [bbox overlay]
+  Emphysema      50%  [bbox overlay]
+  Consolidation  32%  [bbox overlay]
+
+🩻 DIFFERENTIAL DIAGNOSES
+  #1  Pneumothorax                  J93.9   [pm_41298238]
+  #2  Pulmonary Embolism            I26.99  [pm_41704972]
+  #3  Acute Pleurisy with Effusion  J90     [pm_41436219]
+  #4  Acute Aortic Dissection       I71.00  [pm_40783555]
+
+➡️  NEXT STEPS
+  → Immediate CXR (pneumothorax, pleural effusion)
+  → CT pulmonary angiography (CTPA) — elevated D-dimer
+  → ECG — cardiac ischemia / right heart strain
+  → Point-of-care ultrasound (POCUS)
+
+📚 CITATIONS (8) — ✅ Verified
+  [pm_41298238] BMJ Case Reports 2025 · PMID:41298238 · DOI:10.1136/bcr-...
+  [pm_41704972] Cureus 2026 · PMID:41704972 · DOI:10.7759/cureus.101643
+  ... (all with exact quotes from retrieved abstracts)
+
+⏱️  AGENT TRACES
+  VisionAgent              1842 ms
+  RetrievalAgent            108 ms  (6 docs retrieved)
+  DiagnosisAgent           5695 ms
+  CitationVerifierAgent       0 ms
+  SafetyAgent               151 ms
+  ──────────────────────────────
+  Total                    7796 ms
+
+📄 PDF report generated: /reports/97d5ca174418.pdf
+```
+
+---
+
+## 🚀 Quick Start
+
+### Option A — Streamlit Cloud (No setup)
+Visit **https://medical-dss.streamlit.app** → add your Gemini API key in the sidebar → upload a CXR and go.
+
+### Option B — Local (Full Stack)
 
 ```bash
-git clone https://github.com/your-org/medical-dss.git
+# 1. Clone
+git clone https://github.com/Ayushlion8/medical-dss.git
 cd medical-dss
 
-# Copy environment template
+# 2. Python environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r api/requirements.txt
+
+# 3. Configure
 cp .env.template .env
+# Set: GEMINI_API_KEY, PUBMED_EMAIL in .env
 
-# Edit .env — set your PubMed email (required by NCBI ToS)
-# PUBMED_EMAIL=your@email.com
+# 4. Start ChromaDB
+docker compose up -d chromadb
+
+# 5. Seed RAG index (~355 PubMed abstracts, ~3 min)
+python -m rag.ingestion --max-per-query 30
+
+# 6. Start API
+uvicorn api.main:app --port 8000
+
+# 7. Start UI (new terminal)
+cd ui && npm install && npm run dev
+# → http://localhost:3000
 ```
 
-### 2. Start services
+### Option C — Full Docker Stack
 
 ```bash
+cp .env.template .env        # configure first
 docker compose up -d --build
-
-# Check all services are healthy
-docker compose ps
-docker compose logs api --tail 30
-```
-
-### 3. Pull LLM models (one-time, ~15 GB)
-
-```bash
-bash scripts/pull_models.sh
-```
-
-This pulls:
-- `gemma3:12b` — primary diagnosis/reasoning model
-- `llava:13b` — vision fallback for LLM-based CXR description
-
-### 4. Seed RAG index from PubMed
-
-```bash
 bash scripts/seed_rag.sh
-# Default: 30 abstracts × 12 clinical queries ≈ 300-360 documents
+# → http://localhost
 ```
 
-### 5. Open the UI
-
-Navigate to **http://localhost** (or **http://localhost:3000** for dev).
-
-### 6. Run a test case (no image needed)
+### Run Test Cases (CLI)
 
 ```bash
 python scripts/test_case.py --case 1   # pneumothorax
-python scripts/test_case.py --case 2   # PE
+python scripts/test_case.py --case 2   # pulmonary embolism
 ```
 
 ---
 
-## Development Setup (without Docker)
-
-```bash
-# API
-cd medical-dss
-python -m venv .venv && source .venv/bin/activate
-pip install -r api/requirements.txt
-uvicorn api.main:app --reload --port 8000
-
-# UI
-cd ui
-npm install
-npm run dev   # http://localhost:3000
-```
-
-Requires local ChromaDB and Ollama running.
-
----
-
-## Repository Structure
+## 📁 Repository Structure
 
 ```
 medical-dss/
 ├── agents/
-│   ├── orchestrator.py        # Workflow coordinator
-│   ├── vision_agent.py        # TorchXRayVision + LLaVA fallback
-│   ├── retrieval_agent.py     # BM25 + ChromaDB + PubMed E-utilities
-│   ├── diagnosis_agent.py     # Gemma reasoning → differentials
-│   ├── citation_verifier.py   # Groundedness check
-│   └── safety_agent.py        # PHI scan + PDF export
+│   ├── orchestrator.py          # Workflow coordinator + JSONL trace logger
+│   ├── vision_agent.py          # TorchXRayVision DenseNet121 + LLaVA fallback
+│   ├── retrieval_agent.py       # BM25 + ChromaDB + PubMed E-utilities
+│   ├── diagnosis_agent.py       # Gemini clinical reasoning → differentials
+│   ├── citation_verifier.py     # Groundedness validation
+│   └── safety_agent.py          # PHI scan + dosing guardrail + PDF export
 ├── rag/
-│   ├── store.py               # ChromaDB vector store
-│   └── ingestion.py           # PubMed abstract ingestion script
+│   ├── store.py                 # ChromaDB singleton + sentence-transformers
+│   └── ingestion.py             # ESearch → EFetch → upsert pipeline
 ├── api/
-│   ├── main.py                # FastAPI app entry point
-│   ├── config.py              # Pydantic settings
-│   ├── models.py              # Request / response schemas
-│   └── routes/
-│       ├── analyze.py         # POST /analyze-case, POST /upload-image
-│       ├── health.py          # GET /health
-│       └── reports.py         # GET /reports/{id}
-├── ui/
-│   ├── src/
-│   │   ├── App.jsx            # Root component + step router
-│   │   ├── components/
-│   │   │   ├── Banner.jsx     # Medical device warning banner
-│   │   │   ├── Navbar.jsx     # Step progress nav
-│   │   │   ├── UploadStep.jsx # Dropzone + DICOM upload
-│   │   │   ├── CaseFormStep.jsx # Clinical form + agent progress
-│   │   │   └── AnalysisPanel.jsx # Full result display
-│   │   └── api/client.js      # Axios API client
-│   └── package.json
+│   ├── main.py                  # FastAPI app + middleware
+│   ├── config.py                # Pydantic settings (.env)
+│   ├── models.py                # Full request / response schemas
+│   └── routes/                  # analyze · health · reports
+├── ui/src/components/
+│   ├── UploadStep.jsx           # Dropzone + DICOM + de-id warning
+│   ├── CaseFormStep.jsx         # Clinical form + animated agent pipeline
+│   └── AnalysisPanel.jsx        # Differentials + overlays + citations
+├── streamlit_app.py             # Self-contained Streamlit deployment
 ├── infra/
-│   ├── Dockerfile.api         # API container
-│   ├── Dockerfile.ui          # React build + nginx
-│   ├── nginx.conf             # Reverse proxy + TLS note
-│   ├── nginx-ui.conf          # SPA static serving
-│   └── openapi.yaml           # Full OpenAPI 3.1 specification
+│   ├── openapi.yaml             # Full OpenAPI 3.1 specification
+│   ├── Dockerfile.api / .ui     # Container builds
+│   └── nginx.conf               # Rate limiting + TLS + reverse proxy
 ├── scripts/
-│   ├── pull_models.sh         # Pull Ollama models
-│   ├── seed_rag.sh            # Ingest PubMed abstracts
-│   └── test_case.py           # CLI test runner
+│   ├── test_case.py             # CLI smoke test (no image needed)
+│   ├── seed_rag.sh              # Ingest PubMed abstracts
+│   └── pull_models.sh           # Pull Ollama models
 ├── sample_data/
-│   ├── synthetic_vignettes.json  # 5 test cases (no PHI)
-│   └── agent_traces.jsonl        # 3 sample session traces
+│   ├── synthetic_vignettes.json # 5 test cases (no PHI)
+│   └── agent_traces.jsonl       # 3 sample session traces (JSONL)
 ├── docker-compose.yml
-├── .env.template
-└── README.md
+└── .env.template
 ```
 
 ---
 
-## Model Configuration
+## 🔌 API Reference
 
-### Text model (Gemma via Ollama)
+Full spec: [`infra/openapi.yaml`](infra/openapi.yaml) · Interactive: `http://localhost:8000/api/docs`
 
-| Model | VRAM | Speed | Recommended for |
+### POST `/api/analyze-case`
+```json
+{
+  "case_id": "case-001",
+  "patient_context": {
+    "age": 28, "sex": "M",
+    "chief_complaint": "sudden right-sided chest pain and dyspnea",
+    "vitals": {"BP": "122/78", "HR": 104, "RR": 22, "SpO2": 94},
+    "labs": {"D_dimer": 1200, "troponin": 0.03},
+    "meds": ["metformin"]
+  },
+  "images": [{"id": "img1", "format": "PNG", "uri": "/uploads/img1.png"}],
+  "preferences": {"recency_years": 5, "max_citations": 8}
+}
+```
+
+**Response includes:** `imaging_findings` · `differentials` (ICD-10 + rationale + citations) · `red_flags` · `next_steps` · `citations` (PMID + DOI + quote) · `groundedness` · `traces` · `report_url`
+
+---
+
+## ⚙️ Configuration
+
+### LLM Options
+
+| Model | Size | Speed | Use Case |
 |---|---|---|---|
-| `gemma3:4b`  | ~4 GB  | Fast   | Development / CPU-only |
-| `gemma3:12b` | ~10 GB | Good   | **Default** |
-| `gemma3:27b` | ~20 GB | Best   | Production w/ GPU |
-| `gemma2:9b`  | ~8 GB  | Good   | Alternative |
+| `gemini-2.0-flash` | Cloud | ~3s | **Default — best quality/speed** |
+| `gemini-2.5-flash` | Cloud | ~5s | Higher reasoning quality |
+| `gemma3:4b` via Ollama | ~3 GB | ~30s CPU | Fully local / offline |
+| `gemma3:12b` via Ollama | ~10 GB | Fast w/ GPU | Local production |
 
-Change `OLLAMA_MODEL` in `.env`.
-
-### Vision model
+### Vision Options
 
 | Route | Details |
 |---|---|
-| **TorchXRayVision** (default) | DenseNet121 trained on NIH/CheXpert/MIMIC — fast, deterministic, 14 pathology labels |
+| **TorchXRayVision** (default) | DenseNet121 — NIH/CheXpert/MIMIC trained, 14 pathology labels, deterministic |
 | **LLaVA 13B** (fallback) | Free-form VQA via Ollama when TorchXRV unavailable |
-| **PaliGemma 2** (optional) | Set `HF_TOKEN` and `PALIGEMMA_MODEL_ID` for HuggingFace route |
+| **PaliGemma 2** (optional) | Set `HF_TOKEN` + `PALIGEMMA_MODEL_ID` for HuggingFace route |
 
 ---
 
-## Data Sources (Public / Synthetic Only)
+## 📚 Data Sources
 
-| Dataset | Use | Link |
+| Dataset | Size | Use |
 |---|---|---|
-| NIH ChestX-ray14 | 112k CXR images, 14 labels | [NIH](https://nihcc.app.box.com/v/ChestXray-NIHCC) |
-| CheXpert | 224k CXR + reports | [Stanford](https://stanfordmlgroup.github.io/competitions/chexpert/) |
-| VinDr-CXR | 18k CXR + radiologist bboxes | [PhysioNet](https://physionet.org/content/vindr-cxr/1.0.0/) |
-| PubMed/PMC | Clinical evidence via E-utilities | [NCBI](https://eutils.ncbi.nlm.nih.gov/) |
+| NIH ChestX-ray14 | 112k images | 14 pathology labels for TorchXRV training |
+| CheXpert | 224k images | Reports + uncertainty labels |
+| VinDr-CXR | 18k images | Radiologist bounding boxes (overlay demo) |
+| PubMed E-utilities | 355 abstracts | RAG index (ESearch → EFetch → ChromaDB) |
 
 ---
 
-## API Reference
+## 🛡️ Safety & Compliance
 
-Full spec: [`infra/openapi.yaml`](infra/openapi.yaml)  
-Interactive docs: http://localhost:8000/api/docs
-
-### POST `/api/upload-image`
-Upload a CXR image. Returns `image_id` for use in `/analyze-case`.
-
-### POST `/api/analyze-case`
-Full pipeline: Vision → Retrieval → Diagnosis → Verify → Safety → PDF.  
-See [`api/models.py`](api/models.py) for complete request/response schemas.
-
-### GET `/api/reports/{report_id}`
-Download generated PDF report.
+- **Not a medical device** under FDA 21 CFR Part 820 or EU MDR 2017/745
+- **PHI guardrail** — SafetyAgent applies HIPAA Safe Harbor regex on all text before PDF export
+- **Dosing guardrail** — flags any dosage not backed by a guideline citation
+- **Mandatory disclaimer** on all outputs, reports, and the UI banner
+- **Preprints labeled** — medRxiv/bioRxiv sources flagged as unreviewed
+- **No secrets in repo** — `.env.template` with safe placeholders only
+- **Rate limiting** — nginx limits `/api/` to 30 req/min per IP
 
 ---
 
-## Observability
+## 📋 Deliverables Checklist
 
-Agent traces are saved as JSONL to `/app/traces/` (mapped to Docker volume).
+- [x] Working prototype — local + **Streamlit Cloud** (https://medical-dss.streamlit.app)
+- [x] 6-agent team — Orchestrator · Vision · Retrieval · Diagnosis · Verifier · Safety
+- [x] TorchXRayVision imaging findings + bounding box overlays (14 pathologies)
+- [x] Hybrid RAG — BM25 + ChromaDB vector search over 355 PubMed abstracts
+- [x] Live PubMed E-utilities — ESearch → EFetch → ESummary pipeline
+- [x] Gemini-powered differentials with ICD-10 + inline `[snippet_id]` citations
+- [x] Citation verification + groundedness score per case
+- [x] PHI scan + dosing guardrail + safety disclaimers
+- [x] PDF report generation (ReportLab — overlays + citations + disclaimer)
+- [x] Agent traces (JSONL) — 3 sample sessions in `sample_data/`
+- [x] 5 synthetic vignettes — pneumothorax · PE · pneumonia · CHF · malignancy
+- [x] OpenAPI 3.1 specification (`infra/openapi.yaml`)
+- [x] `docker-compose.yml` + `.env.template`
+- [x] React UI — 3-step wizard with dark medical theme
+- [x] Streamlit app — single-file cloud deployment
+
+---
+
+## 🔭 Observability
 
 ```bash
-# View latest traces
+# View agent traces per case
 docker compose exec api ls /app/traces/
-docker compose exec api cat /app/traces/<case_id>_*.jsonl | python3 -m json.tool
+docker compose exec api cat /app/traces/<case_id>.jsonl | python3 -m json.tool
 
 # Check RAG index size
 docker compose exec api python3 -c "from rag.store import VectorStore; print(VectorStore().count())"
+
+# API logs
+docker compose logs api -f
 ```
 
 ---
 
-## Security Notes
+## 🧩 Extending the System
 
-- **No secrets in repo.** Use `.env` (git-ignored). `.env.template` has safe placeholders.
-- **TLS:** Uncomment TLS blocks in `infra/nginx.conf` and mount certs for production.
-- **PHI:** SafetyAgent applies regex-based PHI detection on all text before PDF export. Never upload identifiable data.
-- **Rate limiting:** nginx limits `/api/` to 30 req/min per IP.
+**Add a new agent** — create `agents/my_agent.py`, register in `orchestrator.py`, add output fields to `api/models.py`.
 
----
+**Add a new RAG source** — edit `rag/ingestion.py` to add Cochrane, ClinicalTrials.gov, or WHO guidelines.
 
-## Compliance & Disclaimers
-
-- This system is **NOT** a medical device under FDA 21 CFR Part 820 or EU MDR 2017/745.
-- All outputs are for **research and education** purposes only.
-- No PHI should be processed. Use only de-identified or synthetic data.
-- The SafetyAgent enforces: PHI scan, dosing guardrails, and mandatory disclaimer on all outputs.
-- Preprint results (medRxiv/bioRxiv) are labeled as such in citations.
+**Switch to PaliGemma** — set `HF_TOKEN` + `PALIGEMMA_MODEL_ID=google/paligemma2-3b-pt-448` in `.env`, update `vision_agent.py`.
 
 ---
 
-## Extending the System
+## 🏗️ Tech Stack
 
-### Add a new agent
-1. Create `agents/my_agent.py` with an `async def run(...)` method.
-2. Register it in `agents/orchestrator.py`.
-3. Add its output fields to `api/models.py`.
-
-### Add a new RAG source
-Edit `rag/ingestion.py` to add queries or new data sources (Cochrane, ClinicalTrials.gov, etc.).
-
-### Switch to PaliGemma
-Set `HF_TOKEN` and `PALIGEMMA_MODEL_ID=google/paligemma2-3b-pt-448` in `.env`.  
-Update `agents/vision_agent.py` → `_analyze_image_sync` to call the HuggingFace pipeline instead of TorchXRayVision.
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite + Tailwind CSS |
+| Streamlit | Streamlit 1.35+ (cloud deployment) |
+| Backend | FastAPI + Uvicorn + Pydantic |
+| LLM | Google Gemini 2.0/2.5 Flash |
+| Vision | TorchXRayVision DenseNet121 + OpenCV |
+| Vector DB | ChromaDB 0.6+ |
+| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
+| BM25 | rank-bm25 |
+| Literature | PubMed E-utilities (ESearch + EFetch + ESummary) |
+| PDF | ReportLab |
+| Infra | Docker + docker-compose + nginx |
 
 ---
 
-*Built for the Agentic Diagnostic Decision Support assignment. All patient data used is synthetic (no PHI).*
+*Built for the Agentic Diagnostic Decision Support assignment.
+All patient data is synthetic — no PHI. Research/education only.*

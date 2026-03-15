@@ -26,7 +26,7 @@ Upload a chest X-ray + fill a clinical form → a team of 6 AI agents collaborat
 > DICOM (.dcm), PNG, or JPEG · De-identification enforced · 50 MB max
 
 ![Upload Step](docs/upload.png)
-![Upload Step]<img src="chestXray_image.png" width="300">)
+![Upload Step]<img src="chestXray_image.png" width="60%">)
 
 ### Step 2 — Clinical Case Form
 > Demographics · Vitals · Labs (JSON) · Medications · Evidence preferences
